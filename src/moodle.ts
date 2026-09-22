@@ -276,7 +276,9 @@ export class MoodleClient {
 
   private collectForm(html: string): { action: string; fields: URLSearchParams; draftItemId: string } {
     const { action, fields } = this.collectSubmissionForm(html);
-    const draftItemId = fields.get("files") ?? fields.get("assignsubmission_file_filemanager");
+    const draftItemId = fields.get("files")
+      ?? fields.get("assignsubmission_file_filemanager")
+      ?? fields.get("files_filemanager");
     if (!draftItemId || !/^\d+$/.test(draftItemId)) {
       throw new Error("This assignment does not expose the standard Moodle file-submission field.");
     }
@@ -313,7 +315,9 @@ export class MoodleClient {
 
   async submitAssignmentFile(assignmentUrl: string, sourceFile: string): Promise<string> {
     const { action, fields, draftItemId, html: formPage } = await this.submissionForm(assignmentUrl).then((form) => {
-      const draftItemId = form.fields.get("files") ?? form.fields.get("assignsubmission_file_filemanager");
+      const draftItemId = form.fields.get("files")
+        ?? form.fields.get("assignsubmission_file_filemanager")
+        ?? form.fields.get("files_filemanager");
       if (!draftItemId || !/^\d+$/.test(draftItemId)) {
         throw new Error("This assignment does not expose the standard Moodle file-submission field.");
       }

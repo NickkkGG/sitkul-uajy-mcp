@@ -42,6 +42,7 @@ npm run build
 | `list_materials` | Menampilkan file materi dari sebuah kelas. |
 | `download_material` | Mengunduh URL hasil `list_materials` ke folder `downloads`. |
 | `submit_assignment_file` | Mengumpulkan file lokal ke tugas Moodle. Wajib `confirm_submit: true`. |
+| `submit_assignment_text` | Mengumpulkan teks atau tautan, misalnya link Google Colab. Wajib `confirm_submit: true`. |
 
 `download_material` tidak menimpa file yang sudah ada. Ubah `SITKUL_DOWNLOAD_DIR` bila ingin memakai folder lain.
 
