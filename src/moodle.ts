@@ -38,6 +38,7 @@ export class MoodleClient {
   private readonly baseUrl: string;
   private readonly cookies = new Map<string, string>();
   private loggedIn = false;
+  private loginPromise: Promise<void> | undefined;
 
   constructor(
     private readonly username: string | undefined,
@@ -99,6 +100,13 @@ export class MoodleClient {
 
   async ensureLogin(): Promise<void> {
     if (this.loggedIn) return;
+    if (!this.loginPromise) {
+      this.loginPromise = this.login().finally(() => { this.loginPromise = undefined; });
+    }
+    return this.loginPromise;
+  }
+
+  private async login(): Promise<void> {
     if (!this.username || !this.password) {
       throw new Error("Missing SITKUL_USERNAME or SITKUL_PASSWORD. Copy .env.example to .env and set both values.");
     }
@@ -129,17 +137,21 @@ export class MoodleClient {
   }
 
   async listCourses(): Promise<Course[]> {
-    const html = await this.page("/my/courses.php");
-    const $ = cheerio.load(html);
     const courses: Course[] = [];
-    $("a[href*='/course/view.php?id=']").each((_, element) => {
-      const href = $(element).attr("href");
-      const name = compact($(element).text());
-      if (!href || !name) return;
-      const url = this.absolute(href);
-      const id = url.searchParams.get("id");
-      if (id) courses.push({ id, name, url: url.href });
-    });
+    // UAJY's /my/courses.php can be empty while its dashboard still contains the
+    // enrolled-course cards, so inspect both standard Moodle views.
+    for (const path of ["/my/courses.php", "/my/"]) {
+      const html = await this.page(path);
+      const $ = cheerio.load(html);
+      $("a[href*='/course/view.php?id=']").each((_, element) => {
+        const href = $(element).attr("href");
+        const name = compact($(element).text());
+        if (!href || !name) return;
+        const url = this.absolute(href);
+        const id = url.searchParams.get("id");
+        if (id) courses.push({ id, name, url: url.href });
+      });
+    }
     return uniqueByUrl(courses);
   }
 
@@ -198,7 +210,7 @@ export class MoodleClient {
     const html = await this.page(`/course/view.php?id=${encodeURIComponent(courseId)}`);
     const $ = cheerio.load(html);
     const materials: Material[] = [];
-    $("a[href*='/pluginfile.php/']").each((_, element) => {
+    $("a[href*='/pluginfile.php/'], a[href*='/mod/resource/view.php?id=']").each((_, element) => {
       const href = $(element).attr("href");
       const name = compact($(element).text()) || compact($(element).attr("title") ?? "");
       if (!href || !name) return;
@@ -211,7 +223,9 @@ export class MoodleClient {
   async downloadMaterial(materialUrl: string, outputDirectory: string): Promise<{ path: string; bytes: number }> {
     await this.ensureLogin();
     const material = this.absolute(materialUrl);
-    if (!material.pathname.includes("/pluginfile.php/")) throw new Error("Only Moodle material URLs returned by list_materials may be downloaded.");
+    const isFile = material.pathname.includes("/pluginfile.php/");
+    const isResource = material.pathname.includes("/mod/resource/view.php");
+    if (!isFile && !isResource) throw new Error("Only Moodle material URLs returned by list_materials may be downloaded.");
     const response = await this.request(material);
     if (!response.ok) throw new Error(`Download failed with HTTP ${response.status}.`);
     const bytes = Buffer.from(await response.arrayBuffer());
