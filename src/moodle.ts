@@ -199,6 +199,12 @@ export class MoodleClient {
         }
       });
       const context = compact($("#region-main, main, body").first().text()).slice(0, 800);
+      // UAJY's Moodle theme currently renders an assignment due date as text
+      // (for example "Due: Tuesday, 22 September 2026, 9:00 PM") instead of <time>.
+      const textDue = /\bDue:\s*([A-Za-z]+,\s*\d{1,2}\s+[A-Za-z]+\s+\d{4},\s*\d{1,2}:\d{2}\s*(?:AM|PM))/i.exec(context)?.[1];
+      if (!dueAt && textDue && !Number.isNaN(Date.parse(textDue))) {
+        dueAt = new Date(textDue).toISOString();
+      }
       deadlines.push({ ...assignment, dueAt, context });
     }
     return deadlines.sort((a, b) => (a.dueAt ?? "9999").localeCompare(b.dueAt ?? "9999"));
