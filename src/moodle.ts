@@ -210,6 +210,44 @@ export class MoodleClient {
     return deadlines.sort((a, b) => (a.dueAt ?? "9999").localeCompare(b.dueAt ?? "9999"));
   }
 
+  async getAssignmentDetails(assignmentUrl: string): Promise<{
+    name: string;
+    instructions: string;
+    dueAt?: string;
+    submissionStatus?: string;
+    gradingStatus?: string;
+    timeRemaining?: string;
+    lastModified?: string;
+    canSubmit: boolean;
+  }> {
+    const assignment = this.absolute(assignmentUrl);
+    if (!assignment.pathname.includes("/mod/assign/view.php")) {
+      throw new Error("Use an assignment URL returned by list_assignments.");
+    }
+    const html = await this.page(assignment.href);
+    const $ = cheerio.load(html);
+    const main = $("#region-main, main").first();
+    const pageText = compact(main.text());
+    const values = new Map<string, string>();
+    main.find("tr").each((_, row) => {
+      const label = compact($(row).find("th").first().text());
+      const value = compact($(row).find("td").first().text());
+      if (label && value) values.set(label.toLowerCase(), value);
+    });
+    const dueText = /\bDue:\s*([A-Za-z]+,\s*\d{1,2}\s+[A-Za-z]+\s+\d{4},\s*\d{1,2}:\d{2}\s*(?:AM|PM))/i.exec(pageText)?.[1];
+    const dueAt = dueText && !Number.isNaN(Date.parse(dueText)) ? new Date(dueText).toISOString() : undefined;
+    return {
+      name: compact($("h1, .activity-header h2, .activity-header h3").first().text()) || "Assignment",
+      instructions: compact($("#intro").text()),
+      dueAt,
+      submissionStatus: values.get("submission status"),
+      gradingStatus: values.get("grading status"),
+      timeRemaining: values.get("time remaining"),
+      lastModified: values.get("last modified"),
+      canSubmit: /\b(?:Add|Edit) submission\b/i.test(pageText),
+    };
+  }
+
   async listMaterials(courseId: string): Promise<Material[]> {
     const course = (await this.listCourses()).find((item) => item.id === courseId);
     if (!course) throw new Error(`Course ${courseId} was not found in your enrolled courses.`);
