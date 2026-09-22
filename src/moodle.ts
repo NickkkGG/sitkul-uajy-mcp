@@ -256,7 +256,7 @@ export class MoodleClient {
     return key;
   }
 
-  private collectForm(html: string): { action: string; fields: URLSearchParams; draftItemId: string } {
+  private collectSubmissionForm(html: string): { action: string; fields: URLSearchParams } {
     const $ = cheerio.load(html);
     const form = $("form#mod_assign_submission_form, form[id^=mform]").first();
     if (!form.length) throw new Error("Moodle did not show a submission form. The assignment may not accept submissions.");
@@ -270,24 +270,55 @@ export class MoodleClient {
       const value = input.is("select") ? input.find("option:selected").attr("value") : input.val();
       fields.set(name, String(value ?? ""));
     });
+    fields.set("submitbutton", "Save changes");
+    return { action: this.absolute(form.attr("action") ?? "").href, fields };
+  }
+
+  private collectForm(html: string): { action: string; fields: URLSearchParams; draftItemId: string } {
+    const { action, fields } = this.collectSubmissionForm(html);
     const draftItemId = fields.get("files") ?? fields.get("assignsubmission_file_filemanager");
     if (!draftItemId || !/^\d+$/.test(draftItemId)) {
       throw new Error("This assignment does not expose the standard Moodle file-submission field.");
     }
-    fields.set("submitbutton", "Save changes");
-    return { action: this.absolute(form.attr("action") ?? "").href, fields, draftItemId };
+    return { action, fields, draftItemId };
   }
 
-  async submitAssignmentFile(assignmentUrl: string, sourceFile: string): Promise<string> {
+  private async submissionForm(assignmentUrl: string): Promise<{ action: string; fields: URLSearchParams; html: string }> {
     await this.ensureLogin();
     const assignment = this.absolute(assignmentUrl);
     if (!assignment.pathname.includes("/mod/assign/view.php")) throw new Error("Use an assignment URL returned by list_assignments.");
-    const overview = await this.page(assignment.href);
-    const $ = cheerio.load(overview);
-    const edit = $("a[href*='action=editsubmission']").first().attr("href");
-    if (!edit) throw new Error("No editable submission is available. Check due date and assignment permissions.");
-    const formPage = await this.page(this.absolute(edit).href);
-    const { action, fields, draftItemId } = this.collectForm(formPage);
+    const editUrl = `${assignment.href}${assignment.search ? "&" : "?"}action=editsubmission`;
+    const formPage = await this.page(editUrl);
+    return { ...this.collectSubmissionForm(formPage), html: formPage };
+  }
+
+  async submitAssignmentText(assignmentUrl: string, text: string): Promise<string> {
+    const { action, fields } = await this.submissionForm(assignmentUrl);
+    if (!fields.has("onlinetext_editor[text]")) {
+      throw new Error("This assignment does not accept an online-text submission.");
+    }
+    fields.set("onlinetext_editor[text]", text.trim());
+    const submitted = await this.request(action, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: fields.toString(),
+    });
+    const submittedHtml = await submitted.text();
+    this.assertAuthenticated(submittedHtml, submitted);
+    if (!submitted.ok || !/submitted for grading|submission status/i.test(submittedHtml)) {
+      throw new Error("Moodle did not confirm the online-text submission. Verify it in the LMS.");
+    }
+    return "Online-text submission saved. Verify the timestamp and content in Moodle.";
+  }
+
+  async submitAssignmentFile(assignmentUrl: string, sourceFile: string): Promise<string> {
+    const { action, fields, draftItemId, html: formPage } = await this.submissionForm(assignmentUrl).then((form) => {
+      const draftItemId = form.fields.get("files") ?? form.fields.get("assignsubmission_file_filemanager");
+      if (!draftItemId || !/^\d+$/.test(draftItemId)) {
+        throw new Error("This assignment does not expose the standard Moodle file-submission field.");
+      }
+      return { ...form, draftItemId };
+    });
     const data = await import("node:fs/promises").then(({ readFile }) => readFile(resolve(sourceFile)));
     if (data.length > MAX_DOWNLOAD_BYTES) throw new Error("Upload is larger than the 25 MB safety limit.");
     const fileName = basename(sourceFile);

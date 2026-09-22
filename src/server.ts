@@ -61,5 +61,18 @@ export function createServer(): McpServer {
     try { return result({ message: await moodle.submitAssignmentFile(assignment_url, source_file) }); } catch (error) { return failure(error); }
   });
 
+  server.registerTool("submit_assignment_text", {
+    title: "Kumpulkan teks atau tautan tugas",
+    description: "Save text, such as a Google Colab link, as the student's Moodle online-text assignment submission.",
+    inputSchema: {
+      assignment_url: z.string().url().describe("Exact assignment URL returned by list_assignments"),
+      text: z.string().min(1).describe("Text or link to submit"),
+      confirm_submit: z.literal(true).describe("Must be true immediately before submitting"),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+  }, async ({ assignment_url, text }) => {
+    try { return result({ message: await moodle.submitAssignmentText(assignment_url, text) }); } catch (error) { return failure(error); }
+  });
+
   return server;
 }
