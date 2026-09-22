@@ -47,6 +47,17 @@ npm run build
 
 `download_material` tidak menimpa file yang sudah ada. Ubah `SITKUL_DOWNLOAD_DIR` bila ingin memakai folder lain.
 
+## Performa
+
+Pengukuran read-only pada 22 September 2026 untuk membuka detail satu assignment UAJY:
+
+- Sesi baru (login + request pertama): **667 ms**.
+- Sesi Moodle yang sudah aktif: **175 ms**.
+
+Pengumpulan teks memerlukan satu request untuk membuka form dan satu request untuk menyimpan. Jadi pada sesi hangat, batas bawah jaringan kira-kira 350 ms; untuk penggunaan nyata, siapkan sekitar 1–3 detik karena pemrosesan Moodle dan kondisi jaringan. Upload file menambahkan waktu transfer file: ukuran file dibagi kecepatan upload internet, ditambah waktu request Moodle tersebut.
+
+Server menyimpan cookie sesi hanya di memori selama proses hidup agar request berikutnya tidak login ulang. Pengukuran tidak menjalankan submission sungguhan karena submit akan mengubah timestamp tugas.
+
 ## Menjalankan secara lokal
 
 Untuk klien MCP yang mendukung stdio:
