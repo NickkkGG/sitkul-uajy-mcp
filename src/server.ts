@@ -45,14 +45,14 @@ export function createServer(): McpServer {
 
   server.registerTool("list_materials", {
     title: "Daftar materi kuliah",
-    description: "List downloadable Moodle files in one enrolled course.",
+    description: "List Moodle files, resources, and external linked materials in one enrolled course. URL activities include their resolved destination when available.",
     inputSchema: { course_id: z.string().describe("Course ID from list_courses") },
     annotations: { readOnlyHint: true },
   }, async ({ course_id }) => { try { return result(await moodle.listMaterials(course_id)); } catch (error) { return failure(error); } });
 
   server.registerTool("download_material", {
     title: "Unduh materi",
-    description: "Download a material URL returned by list_materials to the MCP host's downloads folder.",
+    description: "Download a Moodle file or resource URL returned by list_materials to the MCP host's downloads folder. External link materials must be opened at their target URL and may require that provider's login.",
     inputSchema: { material_url: z.string().url().describe("Exact URL returned by list_materials") },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
   }, async ({ material_url }) => {

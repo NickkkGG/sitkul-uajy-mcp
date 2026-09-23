@@ -41,8 +41,8 @@ npm run build
 | `list_deadlines` | Membuka setiap halaman tugas dan mengurutkan deadline terdekat. |
 | `get_assignment_details` | Membuka satu tugas untuk membaca instruksi, deadline, dan status submission. |
 | `list_assignment_attachments` | Mendaftar file lampiran pada deskripsi sebuah tugas. |
-| `list_materials` | Menampilkan file materi dari sebuah kelas. |
-| `download_material` | Mengunduh URL hasil `list_materials` ke folder `downloads`. |
+| `list_materials` | Menampilkan file, resource Moodle, dan URL materi eksternal (misalnya Canva); URL eksternal menyertakan `targetUrl` bila dapat diresolusikan. |
+| `download_material` | Mengunduh file/resource Moodle ke folder `downloads`. Link eksternal perlu dibuka di penyedianya dan dapat meminta login. |
 | `submit_assignment_file` | Mengumpulkan file lokal ke tugas Moodle. Wajib `confirm_submit: true`. |
 | `submit_assignment_text` | Mengumpulkan teks atau tautan, misalnya link Google Colab. Wajib `confirm_submit: true`. |
 

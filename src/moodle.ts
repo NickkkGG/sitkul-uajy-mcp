@@ -13,7 +13,14 @@ export type Activity = {
   context: string;
   dueAt?: string;
 };
-export type Material = { name: string; url: string; section?: string };
+export type Material = {
+  name: string;
+  url: string;
+  section?: string;
+  kind: "file" | "resource" | "link";
+  /** The destination for Moodle URL activities, when it can be resolved safely. */
+  targetUrl?: string;
+};
 export type AssignmentAttachment = { name: string; url: string };
 
 const DEFAULT_BASE_URL = "https://kuliah.uajy.ac.id";
@@ -271,15 +278,34 @@ export class MoodleClient {
     if (!course) throw new Error(`Course ${courseId} was not found in your enrolled courses.`);
     const html = await this.page(`/course/view.php?id=${encodeURIComponent(courseId)}`);
     const $ = cheerio.load(html);
-    const materials: Material[] = [];
-    $("a[href*='/pluginfile.php/'], a[href*='/mod/resource/view.php?id=']").each((_, element) => {
+    const candidates: Material[] = [];
+    $("a[href*='/pluginfile.php/'], a[href*='/mod/resource/view.php?id='], a[href*='/mod/url/view.php?id=']").each((_, element) => {
       const href = $(element).attr("href");
       const name = compact($(element).text()) || compact($(element).attr("title") ?? "");
       if (!href || !name) return;
       const section = compact($(element).closest("li.section, .course-section, section").find(".sectionname, h3, h4").first().text()) || undefined;
-      materials.push({ name, url: this.absolute(href).href, section });
+      const url = this.absolute(href).href;
+      const kind = url.includes("/pluginfile.php/")
+        ? "file"
+        : url.includes("/mod/resource/view.php")
+          ? "resource"
+          : "link";
+      candidates.push({ name, url, section, kind });
     });
-    return uniqueByUrl(materials);
+    const materials = uniqueByUrl(candidates);
+    for (const material of materials) {
+      if (material.kind !== "link") continue;
+      const linkPage = await this.page(material.url);
+      const linkPage$ = cheerio.load(linkPage);
+      const destination = linkPage$("a[href]").toArray()
+        .map((element) => linkPage$(element).attr("href"))
+        .find((href): href is string => {
+          if (!href || href.startsWith("#")) return false;
+          try { return new URL(href, this.baseUrl).origin !== this.origin; } catch { return false; }
+        });
+      if (destination) material.targetUrl = new URL(destination, this.baseUrl).href;
+    }
+    return materials;
   }
 
   async downloadMaterial(materialUrl: string, outputDirectory: string): Promise<{ path: string; bytes: number }> {
