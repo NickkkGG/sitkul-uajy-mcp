@@ -54,9 +54,13 @@ npm run build
 
 ## Menghubungkan Canva untuk materi link
 
-### Menggunakan Canva MCP resmi (direkomendasikan)
+### Export langsung dari Sitkul MCP di chat yang sama (direkomendasikan)
 
-Hubungkan remote server Canva `https://mcp.canva.com/mcp` di klien MCP yang sama dengan Sitkul. Ketika `list_materials` menemukan Canva, hasilnya kini menyertakan `handoff` berisi alur `resolve-shortlink` → `get-export-formats` → `export-design` PDF. Agent/chat menjadi penghubung kedua MCP: Sitkul tidak menerima, menyalin, atau menyimpan token Canva dari server Canva. Gunakan `prepare_material_download` jika hanya memiliki URL aktivitas Moodle dan ingin mengetahui alur yang tepat.
+Saat `list_materials` atau `prepare_material_download` menemukan Canva, gunakan `handoff.sameChat` lalu panggil `download_canva_material`. Tool ini sudah berada di server Sitkul yang aktif, jadi tidak perlu membuat chat/task Codex baru. Hubungkan Canva satu kali melalui `connect_canva`; sesudah itu token tersimpan terenkripsi hanya di komputer MCP dan ekspor PDF/PPTX berikutnya tetap memakai chat yang sama.
+
+### Alternatif: Canva MCP resmi
+
+Jika server Canva resmi `https://mcp.canva.com/mcp` tersedia di katalog tool chat, gunakan `handoff.alternateCanvaMcp`. Alur ini opsional dan tidak menggantikan jalur `sameChat`.
 
 ### OAuth internal Sitkul (opsional)
 

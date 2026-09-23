@@ -20,12 +20,20 @@ function canvaHandoff(targetUrl: string) {
     provider: "canva",
     targetUrl,
     preferredFormat: "pdf",
-    nextMcpServer: "canva",
-    nextActions: [
-      "Use Canva MCP resolve-shortlink with targetUrl.",
-      "Use Canva MCP get-export-formats for the resolved design.",
-      "Use Canva MCP export-design in PDF format, then download its signed URL immediately.",
-    ],
+    sameChat: {
+      nextMcpServer: "sitkul-uajy",
+      nextTool: "download_canva_material",
+      input: { canva_url: targetUrl, format: "pdf" },
+      requirement: "Run canva_connection_status first. If it is not connected, configure the one-time Canva OAuth connection with connect_canva.",
+    },
+    alternateCanvaMcp: {
+      nextMcpServer: "canva",
+      nextActions: [
+        "Use Canva MCP resolve-shortlink with targetUrl.",
+        "Use Canva MCP get-export-formats for the resolved design.",
+        "Use Canva MCP export-design in PDF format, then download its signed URL immediately.",
+      ],
+    },
   };
 }
 
@@ -82,7 +90,7 @@ export function createServer(): McpServer {
             ? { ...material, handoff: canvaHandoff(material.targetUrl) }
             : material
         )),
-        note: "When a material has a Canva handoff, use the separately connected Canva MCP in the same chat. Sitkul never receives or copies Canva credentials.",
+        note: "For Canva links, prefer handoff.sameChat with download_canva_material so the existing Sitkul MCP can complete the export in this chat. The alternate Canva MCP flow is optional.",
       });
     } catch (error) { return failure(error); }
   });
