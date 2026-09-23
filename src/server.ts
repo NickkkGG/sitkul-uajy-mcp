@@ -72,7 +72,7 @@ export function createServer(): McpServer {
 
   server.registerTool("connect_canva", {
     title: "Hubungkan akun Canva",
-    description: "Start the one-time Canva OAuth connection. Open the returned authorization URL in a browser, sign in yourself, and approve read/export access. No Canva password is stored by this MCP.",
+    description: "Start the one-time Canva OAuth connection and open the authorization page in the default browser. Sign in yourself and approve read/export access. After the callback, the local page closes when the browser permits it. No Canva password is stored by this MCP.",
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
   }, async () => { try { return result(await canva.beginConnection()); } catch (error) { return failure(error); } });
 

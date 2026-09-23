@@ -65,7 +65,7 @@ Aktifkan scope `design:content:read` dan `design:meta:read`. Salin Client ID dan
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ```
 
-Set key tersebut ke `CANVA_TOKEN_ENCRYPTION_KEY`, jalankan MCP, lalu panggil `connect_canva`. Buka `authorizationUrl` yang dikembalikan, login sendiri, dan setujui akses. Token akses dan refresh token disimpan terenkripsi di `%LOCALAPPDATA%\SitkulUajyMcp\canva-oauth.enc`; token, key, Client Secret, dan `.env` tidak boleh di-commit.
+Set key tersebut ke `CANVA_TOKEN_ENCRYPTION_KEY`, jalankan MCP, lalu panggil `connect_canva`. MCP otomatis meminta browser default membuka halaman otorisasi; login sendiri dan setujui akses. Callback lokal menyimpan token lalu meminta browser menutup halaman sukses. Token akses dan refresh token disimpan terenkripsi di `%LOCALAPPDATA%\SitkulUajyMcp\canva-oauth.enc`; token, key, Client Secret, dan `.env` tidak boleh di-commit.
 
 Setelah statusnya `connected: true`, alurnya:
 

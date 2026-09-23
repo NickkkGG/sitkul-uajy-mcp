@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
+import { spawn } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import { dirname, resolve } from "node:path";
@@ -46,6 +47,28 @@ function defaultTokenPath(): string {
 
 function sleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function openInDefaultBrowser(url: string): boolean {
+  try {
+    let command: string;
+    let args: string[];
+    if (process.platform === "win32") {
+      command = "cmd.exe";
+      args = ["/d", "/s", "/c", "start", "", url];
+    } else if (process.platform === "darwin") {
+      command = "open";
+      args = [url];
+    } else {
+      command = "xdg-open";
+      args = [url];
+    }
+    const child = spawn(command, args, { detached: true, stdio: "ignore", windowsHide: true });
+    child.unref();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export class CanvaClient {
@@ -176,9 +199,13 @@ export class CanvaClient {
     }
   }
 
-  async beginConnection(): Promise<{ authorizationUrl: string; callbackUrl: string }> {
+  async beginConnection(): Promise<{ authorizationUrl: string; callbackUrl: string; browserLaunchRequested: boolean }> {
     const config = this.config();
-    if (this.pending) return { authorizationUrl: this.pending.authorizationUrl, callbackUrl: config.redirectUri.href };
+    if (this.pending) return {
+      authorizationUrl: this.pending.authorizationUrl,
+      callbackUrl: config.redirectUri.href,
+      browserLaunchRequested: false,
+    };
     const codeVerifier = base64url(randomBytes(48));
     const state = randomUUID();
     const authorizationUrl = new URL(CANVA_AUTHORIZE);
@@ -206,7 +233,7 @@ export class CanvaClient {
         if (!code || returnedState !== state) throw new Error("Invalid Canva OAuth callback. Start connect_canva again.");
         await this.exchangeAuthorizationCode(code, codeVerifier);
         response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-        response.end("<h1>Canva tersambung</h1><p>Kamu boleh menutup halaman ini dan kembali ke Codex.</p>");
+        response.end("<h1>Canva tersambung</h1><p>Kembali ke Codex. Halaman ini akan ditutup bila browser mengizinkan.</p><script>setTimeout(() => window.close(), 800)</script>");
       } catch (error) {
         response.writeHead(400, { "content-type": "text/html; charset=utf-8" });
         response.end(`<h1>Koneksi Canva gagal</h1><p>${error instanceof Error ? error.message : "Unknown error"}</p>`);
@@ -220,7 +247,11 @@ export class CanvaClient {
       callbackServer.listen(Number(config.redirectUri.port), config.redirectUri.hostname, resolve);
     });
     this.pending = { authorizationUrl: authorizationUrl.href, callbackServer, codeVerifier, state };
-    return { authorizationUrl: authorizationUrl.href, callbackUrl: config.redirectUri.href };
+    return {
+      authorizationUrl: authorizationUrl.href,
+      callbackUrl: config.redirectUri.href,
+      browserLaunchRequested: openInDefaultBrowser(authorizationUrl.href),
+    };
   }
 
   private async designIdFromUrl(canvaUrl: string): Promise<string> {
