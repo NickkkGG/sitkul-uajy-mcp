@@ -332,6 +332,18 @@ export class MoodleClient {
     return { ...this.collectSubmissionForm(formPage), html: formPage };
   }
 
+  private uploadRepositoryId(html: string): string {
+    const repositories = /"repositories"\s*:\s*(\{.+?\})\s*,\s*"externallink"/s.exec(html)?.[1];
+    if (!repositories) throw new Error("Moodle did not expose its file-upload repository.");
+    const parsed = JSON.parse(repositories) as Record<string, { id?: string | number; type?: string }>;
+    const upload = Object.values(parsed).find((repository) => repository.type === "upload");
+    const id = upload?.id;
+    if (id === undefined || !/^\d+$/.test(String(id))) {
+      throw new Error("Moodle did not expose a usable file-upload repository.");
+    }
+    return String(id);
+  }
+
   async submitAssignmentText(assignmentUrl: string, text: string): Promise<string> {
     const { action, fields } = await this.submissionForm(assignmentUrl);
     if (!fields.has("onlinetext_editor[text]")) {
@@ -365,7 +377,7 @@ export class MoodleClient {
     if (data.length > MAX_DOWNLOAD_BYTES) throw new Error("Upload is larger than the 25 MB safety limit.");
     const fileName = basename(sourceFile);
     const form = new FormData();
-    form.set("repo_id", "4");
+    form.set("repo_id", this.uploadRepositoryId(formPage));
     form.set("p", "");
     form.set("page", "");
     form.set("env", "filemanager");
@@ -377,7 +389,7 @@ export class MoodleClient {
     form.set("title", fileName);
     form.set("author", "");
     form.set("license", "allrightsreserved");
-    form.set("upload", new Blob([data]), fileName);
+    form.set("repo_upload_file", new Blob([data]), fileName);
     const upload = await this.request("/repository/repository_ajax.php?action=upload", { method: "POST", body: form });
     const uploadText = await upload.text();
     if (!upload.ok || /error|exception/i.test(uploadText)) throw new Error(`Moodle rejected the file upload: ${compact(uploadText).slice(0, 300)}`);
