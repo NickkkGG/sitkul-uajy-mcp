@@ -41,7 +41,8 @@ npm run build
 | `list_deadlines` | Membuka setiap halaman tugas dan mengurutkan deadline terdekat. |
 | `get_assignment_details` | Membuka satu tugas untuk membaca instruksi, deadline, dan status submission. |
 | `list_assignment_attachments` | Mendaftar file lampiran pada deskripsi sebuah tugas. |
-| `list_materials` | Menampilkan file, resource Moodle, dan URL materi eksternal (misalnya Canva); URL eksternal menyertakan `targetUrl` bila dapat diresolusikan. |
+| `list_materials` | Menampilkan file, resource Moodle, dan URL materi eksternal (misalnya Canva); link Canva menyertakan `handoff` ke MCP Canva. |
+| `prepare_material_download` | Memilih alur: download langsung dari Moodle atau handoff ke MCP lain seperti Canva. |
 | `download_material` | Mengunduh file/resource Moodle ke folder `downloads`. Link eksternal perlu dibuka di penyedianya dan dapat meminta login. |
 | `canva_connection_status` | Memeriksa apakah OAuth Canva sudah dikonfigurasi dan terhubung di komputer MCP. |
 | `connect_canva` | Memulai login OAuth Canva satu kali; tidak pernah menyimpan password Canva. |
@@ -53,7 +54,13 @@ npm run build
 
 ## Menghubungkan Canva untuk materi link
 
-Materi berbentuk Canva tidak dapat diunduh langsung dari Moodle. Agar `download_canva_material` otomatis, buat aplikasi pribadi di [Canva Developers](https://www.canva.com/developers/), aktifkan OAuth untuk penggunaan **Outside Canva**, lalu daftarkan redirect URL persis seperti ini:
+### Menggunakan Canva MCP resmi (direkomendasikan)
+
+Hubungkan remote server Canva `https://mcp.canva.com/mcp` di klien MCP yang sama dengan Sitkul. Ketika `list_materials` menemukan Canva, hasilnya kini menyertakan `handoff` berisi alur `resolve-shortlink` → `get-export-formats` → `export-design` PDF. Agent/chat menjadi penghubung kedua MCP: Sitkul tidak menerima, menyalin, atau menyimpan token Canva dari server Canva. Gunakan `prepare_material_download` jika hanya memiliki URL aktivitas Moodle dan ingin mengetahui alur yang tepat.
+
+### OAuth internal Sitkul (opsional)
+
+Materi berbentuk Canva tidak dapat diunduh langsung dari Moodle. Ini hanya diperlukan bila ingin agar `download_canva_material` milik Sitkul yang menangani ekspor sendiri, bukan Canva MCP resmi. Buat aplikasi pribadi di [Canva Developers](https://www.canva.com/developers/), aktifkan OAuth untuk penggunaan **Outside Canva**, lalu daftarkan redirect URL persis seperti ini:
 
 ```
 http://127.0.0.1:3434/canva/oauth/callback

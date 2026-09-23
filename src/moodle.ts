@@ -308,12 +308,34 @@ export class MoodleClient {
     return materials;
   }
 
+  async resolveExternalMaterialLink(materialUrl: string): Promise<string> {
+    const material = this.absolute(materialUrl);
+    if (!material.pathname.includes("/mod/url/view.php")) {
+      throw new Error("Use a Moodle URL activity returned by list_materials.");
+    }
+    const html = await this.page(material.href);
+    const $ = cheerio.load(html);
+    const destination = $("a[href]").toArray()
+      .map((element) => $(element).attr("href"))
+      .find((href): href is string => {
+        if (!href || href.startsWith("#")) return false;
+        try { return new URL(href, this.baseUrl).origin !== this.origin; } catch { return false; }
+      });
+    if (!destination) throw new Error("This Moodle URL activity did not expose an external destination.");
+    return new URL(destination, this.baseUrl).href;
+  }
+
+  isDownloadableMaterialUrl(materialUrl: string): boolean {
+    const material = this.absolute(materialUrl);
+    return material.pathname.includes("/pluginfile.php/") || material.pathname.includes("/mod/resource/view.php");
+  }
+
   async downloadMaterial(materialUrl: string, outputDirectory: string): Promise<{ path: string; bytes: number }> {
     await this.ensureLogin();
     const material = this.absolute(materialUrl);
-    const isFile = material.pathname.includes("/pluginfile.php/");
-    const isResource = material.pathname.includes("/mod/resource/view.php");
-    if (!isFile && !isResource) throw new Error("Only Moodle material URLs returned by list_materials may be downloaded.");
+    if (!this.isDownloadableMaterialUrl(materialUrl)) {
+      throw new Error("Only Moodle material URLs returned by list_materials may be downloaded.");
+    }
     const response = await this.request(material);
     if (!response.ok) throw new Error(`Download failed with HTTP ${response.status}.`);
     const bytes = Buffer.from(await response.arrayBuffer());

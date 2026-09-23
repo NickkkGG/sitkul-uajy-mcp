@@ -6,6 +6,29 @@ import { MoodleClient } from "./moodle.js";
 const result = (data: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] });
 const failure = (error: unknown) => ({ isError: true, content: [{ type: "text" as const, text: error instanceof Error ? error.message : String(error) }] });
 
+function isCanvaUrl(value: string): boolean {
+  try {
+    const host = new URL(value).hostname;
+    return host === "canva.link" || host === "canva.com" || host.endsWith(".canva.com");
+  } catch {
+    return false;
+  }
+}
+
+function canvaHandoff(targetUrl: string) {
+  return {
+    provider: "canva",
+    targetUrl,
+    preferredFormat: "pdf",
+    nextMcpServer: "canva",
+    nextActions: [
+      "Use Canva MCP resolve-shortlink with targetUrl.",
+      "Use Canva MCP get-export-formats for the resolved design.",
+      "Use Canva MCP export-design in PDF format, then download its signed URL immediately.",
+    ],
+  };
+}
+
 export function createServer(): McpServer {
   const moodle = new MoodleClient(process.env.SITKUL_USERNAME, process.env.SITKUL_PASSWORD);
   const canva = new CanvaClient();
@@ -50,7 +73,35 @@ export function createServer(): McpServer {
     description: "List Moodle files, resources, and external linked materials in one enrolled course. URL activities include their resolved destination when available.",
     inputSchema: { course_id: z.string().describe("Course ID from list_courses") },
     annotations: { readOnlyHint: true },
-  }, async ({ course_id }) => { try { return result(await moodle.listMaterials(course_id)); } catch (error) { return failure(error); } });
+  }, async ({ course_id }) => {
+    try {
+      const materials = await moodle.listMaterials(course_id);
+      return result({
+        materials: materials.map((material) => (
+          material.kind === "link" && material.targetUrl && isCanvaUrl(material.targetUrl)
+            ? { ...material, handoff: canvaHandoff(material.targetUrl) }
+            : material
+        )),
+        note: "When a material has a Canva handoff, use the separately connected Canva MCP in the same chat. Sitkul never receives or copies Canva credentials.",
+      });
+    } catch (error) { return failure(error); }
+  });
+
+  server.registerTool("prepare_material_download", {
+    title: "Siapkan unduhan materi",
+    description: "Determine whether a Moodle material should be downloaded directly or handed off to another connected MCP, such as Canva. This tool does not download or export anything itself.",
+    inputSchema: { material_url: z.string().url().describe("Exact Moodle material URL returned by list_materials") },
+    annotations: { readOnlyHint: true },
+  }, async ({ material_url }) => {
+    try {
+      if (moodle.isDownloadableMaterialUrl(material_url)) {
+        return result({ provider: "moodle", nextMcpServer: "sitkul-uajy", nextTool: "download_material", input: { material_url } });
+      }
+      const targetUrl = await moodle.resolveExternalMaterialLink(material_url);
+      if (isCanvaUrl(targetUrl)) return result(canvaHandoff(targetUrl));
+      return result({ provider: "external", targetUrl, note: "Open this link with an appropriate connected MCP or browser; it is not a Moodle-downloadable file." });
+    } catch (error) { return failure(error); }
+  });
 
   server.registerTool("download_material", {
     title: "Unduh materi",
