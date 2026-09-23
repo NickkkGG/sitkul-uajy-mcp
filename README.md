@@ -43,10 +43,37 @@ npm run build
 | `list_assignment_attachments` | Mendaftar file lampiran pada deskripsi sebuah tugas. |
 | `list_materials` | Menampilkan file, resource Moodle, dan URL materi eksternal (misalnya Canva); URL eksternal menyertakan `targetUrl` bila dapat diresolusikan. |
 | `download_material` | Mengunduh file/resource Moodle ke folder `downloads`. Link eksternal perlu dibuka di penyedianya dan dapat meminta login. |
+| `canva_connection_status` | Memeriksa apakah OAuth Canva sudah dikonfigurasi dan terhubung di komputer MCP. |
+| `connect_canva` | Memulai login OAuth Canva satu kali; tidak pernah menyimpan password Canva. |
+| `download_canva_material` | Mengekspor `targetUrl` Canva dari `list_materials` menjadi PDF/PPTX dan mengunduhnya. |
 | `submit_assignment_file` | Mengumpulkan file lokal ke tugas Moodle. Wajib `confirm_submit: true`. |
 | `submit_assignment_text` | Mengumpulkan teks atau tautan, misalnya link Google Colab. Wajib `confirm_submit: true`. |
 
 `download_material` tidak menimpa file yang sudah ada. Ubah `SITKUL_DOWNLOAD_DIR` bila ingin memakai folder lain.
+
+## Menghubungkan Canva untuk materi link
+
+Materi berbentuk Canva tidak dapat diunduh langsung dari Moodle. Agar `download_canva_material` otomatis, buat aplikasi pribadi di [Canva Developers](https://www.canva.com/developers/), aktifkan OAuth untuk penggunaan **Outside Canva**, lalu daftarkan redirect URL persis seperti ini:
+
+```
+http://127.0.0.1:3434/canva/oauth/callback
+```
+
+Aktifkan scope `design:content:read` dan `design:meta:read`. Salin Client ID dan Client Secret ke `.env` lokal, lalu buat satu encryption key:
+
+```powershell
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+Set key tersebut ke `CANVA_TOKEN_ENCRYPTION_KEY`, jalankan MCP, lalu panggil `connect_canva`. Buka `authorizationUrl` yang dikembalikan, login sendiri, dan setujui akses. Token akses dan refresh token disimpan terenkripsi di `%LOCALAPPDATA%\SitkulUajyMcp\canva-oauth.enc`; token, key, Client Secret, dan `.env` tidak boleh di-commit.
+
+Setelah statusnya `connected: true`, alurnya:
+
+1. Panggil `list_materials`.
+2. Ambil `targetUrl` dari materi dengan `kind: "link"`.
+3. Panggil `download_canva_material` dengan URL tersebut dan `format: "pdf"` (atau `pptx` bila perlu diedit).
+
+Canva menentukan apakah desain yang dibagikan boleh diekspor. Jika dosen mematikan izin unduh atau akun Canva Anda tidak memiliki akses desain, tool akan mengembalikan kegagalan tanpa mencoba bypass pembatasan tersebut.
 
 ## Performa
 

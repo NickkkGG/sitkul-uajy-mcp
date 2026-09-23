@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { CanvaClient } from "./canva.js";
 import { MoodleClient } from "./moodle.js";
 
 const result = (data: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] });
@@ -7,6 +8,7 @@ const failure = (error: unknown) => ({ isError: true, content: [{ type: "text" a
 
 export function createServer(): McpServer {
   const moodle = new MoodleClient(process.env.SITKUL_USERNAME, process.env.SITKUL_PASSWORD);
+  const canva = new CanvaClient();
   const server = new McpServer({ name: "sitkul-uajy", version: "0.1.0" });
 
   server.registerTool("list_courses", {
@@ -59,6 +61,33 @@ export function createServer(): McpServer {
     try {
       const directory = process.env.SITKUL_DOWNLOAD_DIR ?? "./downloads";
       return result(await moodle.downloadMaterial(material_url, directory));
+    } catch (error) { return failure(error); }
+  });
+
+  server.registerTool("canva_connection_status", {
+    title: "Status koneksi Canva",
+    description: "Check whether Canva OAuth has been configured and connected on this MCP host.",
+    annotations: { readOnlyHint: true },
+  }, async () => { try { return result(await canva.connectionStatus()); } catch (error) { return failure(error); } });
+
+  server.registerTool("connect_canva", {
+    title: "Hubungkan akun Canva",
+    description: "Start the one-time Canva OAuth connection. Open the returned authorization URL in a browser, sign in yourself, and approve read/export access. No Canva password is stored by this MCP.",
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+  }, async () => { try { return result(await canva.beginConnection()); } catch (error) { return failure(error); } });
+
+  server.registerTool("download_canva_material", {
+    title: "Unduh materi Canva",
+    description: "Export a Canva link returned by list_materials as PDF or PPTX using the connected Canva account, then save it in the MCP host's downloads folder.",
+    inputSchema: {
+      canva_url: z.string().url().describe("The targetUrl for a Canva link returned by list_materials"),
+      format: z.enum(["pdf", "pptx"]).default("pdf").describe("PDF is recommended for reading; PPTX is for editable slides"),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+  }, async ({ canva_url, format }) => {
+    try {
+      const directory = process.env.SITKUL_DOWNLOAD_DIR ?? "./downloads";
+      return result(await canva.downloadDesign(canva_url, format, directory));
     } catch (error) { return failure(error); }
   });
 
