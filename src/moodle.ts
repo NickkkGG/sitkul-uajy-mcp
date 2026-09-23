@@ -14,6 +14,7 @@ export type Activity = {
   dueAt?: string;
 };
 export type Material = { name: string; url: string; section?: string };
+export type AssignmentAttachment = { name: string; url: string };
 
 const DEFAULT_BASE_URL = "https://kuliah.uajy.ac.id";
 const MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024;
@@ -246,6 +247,23 @@ export class MoodleClient {
       lastModified: values.get("last modified"),
       canSubmit: /\b(?:Add|Edit) submission\b/i.test(pageText),
     };
+  }
+
+  async listAssignmentAttachments(assignmentUrl: string): Promise<AssignmentAttachment[]> {
+    const assignment = this.absolute(assignmentUrl);
+    if (!assignment.pathname.includes("/mod/assign/view.php")) {
+      throw new Error("Use an assignment URL returned by list_assignments.");
+    }
+    const html = await this.page(assignment.href);
+    const $ = cheerio.load(html);
+    const attachments: AssignmentAttachment[] = [];
+    $("#intro a[href*='/pluginfile.php/'], .activity-description a[href*='/pluginfile.php/']").each((_, element) => {
+      const href = $(element).attr("href");
+      const name = compact($(element).text()) || compact($(element).attr("title") ?? "");
+      if (!href || !name) return;
+      attachments.push({ name, url: this.absolute(href).href });
+    });
+    return uniqueByUrl(attachments);
   }
 
   async listMaterials(courseId: string): Promise<Material[]> {

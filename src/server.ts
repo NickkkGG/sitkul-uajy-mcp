@@ -36,6 +36,13 @@ export function createServer(): McpServer {
     annotations: { readOnlyHint: true },
   }, async ({ assignment_url }) => { try { return result(await moodle.getAssignmentDetails(assignment_url)); } catch (error) { return failure(error); } });
 
+  server.registerTool("list_assignment_attachments", {
+    title: "Daftar lampiran tugas",
+    description: "List downloadable files attached to a Moodle assignment description.",
+    inputSchema: { assignment_url: z.string().url().describe("Exact assignment URL returned by list_assignments") },
+    annotations: { readOnlyHint: true },
+  }, async ({ assignment_url }) => { try { return result(await moodle.listAssignmentAttachments(assignment_url)); } catch (error) { return failure(error); } });
+
   server.registerTool("list_materials", {
     title: "Daftar materi kuliah",
     description: "List downloadable Moodle files in one enrolled course.",

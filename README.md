@@ -40,6 +40,7 @@ npm run build
 | `list_assignments` | Menampilkan activity tugas, per kelas atau semua kelas. |
 | `list_deadlines` | Membuka setiap halaman tugas dan mengurutkan deadline terdekat. |
 | `get_assignment_details` | Membuka satu tugas untuk membaca instruksi, deadline, dan status submission. |
+| `list_assignment_attachments` | Mendaftar file lampiran pada deskripsi sebuah tugas. |
 | `list_materials` | Menampilkan file materi dari sebuah kelas. |
 | `download_material` | Mengunduh URL hasil `list_materials` ke folder `downloads`. |
 | `submit_assignment_file` | Mengumpulkan file lokal ke tugas Moodle. Wajib `confirm_submit: true`. |
