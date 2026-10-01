@@ -41,6 +41,7 @@ npm run build
 | `list_deadlines` | Membuka setiap halaman tugas dan mengurutkan deadline terdekat. |
 | `get_assignment_details` | Membuka satu tugas untuk membaca instruksi, deadline, dan status submission. |
 | `list_assignment_attachments` | Mendaftar file lampiran pada deskripsi sebuah tugas. |
+| `list_course_sections` | Membaca judul section, pengumuman dosen pada area ringkasan/label, dan ringkasan activity pada halaman mata kuliah. Terima `section_name` opsional untuk membaca satu section. |
 | `list_materials` | Menampilkan file, resource Moodle, dan URL materi eksternal (misalnya Canva); link Canva menyertakan `handoff` ke MCP Canva. |
 | `prepare_material_download` | Memilih alur: download langsung dari Moodle atau handoff ke MCP lain seperti Canva. |
 | `download_material` | Mengunduh file/resource Moodle ke folder `downloads`. Link eksternal perlu dibuka di penyedianya dan dapat meminta login. |

@@ -76,6 +76,26 @@ export function createServer(): McpServer {
     annotations: { readOnlyHint: true },
   }, async ({ assignment_url }) => { try { return result(await moodle.listAssignmentAttachments(assignment_url)); } catch (error) { return failure(error); } });
 
+  server.registerTool("list_course_sections", {
+    title: "Baca pengumuman dan section kuliah",
+    description: "Read course-section headings, lecturer announcements in Moodle labels, and activity summaries. Use this for weekly instructions that appear before an assignment page.",
+    inputSchema: {
+      course_id: z.string().describe("Course ID from list_courses"),
+      section_name: z.string().min(1).optional().describe("Optional exact or partial section title, for example '04 - Business Capability Mapping'"),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ course_id, section_name }) => {
+    try {
+      const sections = await moodle.listCourseSections(course_id);
+      if (!section_name) return result(sections);
+      const needle = section_name.replace(/\s+/g, " ").trim().toLocaleLowerCase();
+      const matches = sections.filter((section) => section.name.toLocaleLowerCase().includes(needle));
+      if (matches.length === 0) throw new Error(`No course section matched '${section_name}'. Call list_course_sections without section_name to see available titles.`);
+      if (matches.length > 1) throw new Error(`More than one course section matched '${section_name}'. Use a more specific section_name.`);
+      return result(matches[0]);
+    } catch (error) { return failure(error); }
+  });
+
   server.registerTool("list_materials", {
     title: "Daftar materi kuliah",
     description: "List Moodle files, resources, and external linked materials in one enrolled course. URL activities include their resolved destination when available.",

@@ -22,6 +22,18 @@ export type Material = {
   targetUrl?: string;
 };
 export type AssignmentAttachment = { name: string; url: string };
+export type CourseSectionItem = {
+  kind: "label" | "activity";
+  name?: string;
+  content: string;
+  url?: string;
+};
+export type CourseSection = {
+  id?: string;
+  name: string;
+  summary?: string;
+  items: CourseSectionItem[];
+};
 
 const DEFAULT_BASE_URL = "https://kuliah.uajy.ac.id";
 const MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024;
@@ -271,6 +283,63 @@ export class MoodleClient {
       attachments.push({ name, url: this.absolute(href).href });
     });
     return uniqueByUrl(attachments);
+  }
+
+  /**
+   * Reads Moodle section labels as well as clickable activities. This matters
+   * because lecturers commonly put weekly announcements in a label, which is
+   * neither a resource nor an assignment and therefore is not returned by
+   * listMaterials/listAssignments.
+   */
+  async listCourseSections(courseId: string): Promise<CourseSection[]> {
+    const course = (await this.listCourses()).find((item) => item.id === courseId);
+    if (!course) throw new Error(`Course ${courseId} was not found in your enrolled courses.`);
+
+    const html = await this.page(`/course/view.php?id=${encodeURIComponent(courseId)}`);
+    const $ = cheerio.load(html);
+    const main = $("#region-main, main").first();
+    const sections = main.find("li.section, .course-section, section[id^='section-']").filter((_, element) => {
+      // A Moodle page can contain the same section in its navigation index.
+      // Keep only visible course-content sections and avoid nested matches.
+      return $(element).parents("li.section, .course-section, section[id^='section-']").length === 0;
+    });
+    const result: CourseSection[] = [];
+
+    sections.each((_, section) => {
+      const node = $(section);
+      const name = compact(node.find("h3.sectionname, [data-for='section_title'] h3, .sectionname, h3, h4").first().text());
+      if (!name) return;
+
+      const summary = compact(node.find("[data-for='sectioninfo'] .summarytext, .summarytext, > .summary, > .description").first().text()) || undefined;
+      const items: CourseSectionItem[] = [];
+      node.find("li.activity, .activity").each((_, activity) => {
+        const item = $(activity);
+        const anchor = item.find(".activityname a[href], a[href*='/mod/']").first();
+        const url = anchor.attr("href");
+        const activityName = compact(anchor.text());
+        const labelText = compact(item.find(".contentwithoutlink, .activity-description, .description").text());
+        const content = labelText || compact(item.text());
+        if (!content) return;
+        items.push({
+          kind: url ? "activity" : "label",
+          ...(activityName ? { name: activityName } : {}),
+          content,
+          ...(url ? { url: this.absolute(url).href } : {}),
+        });
+      });
+
+      result.push({
+        ...(node.attr("id") ? { id: node.attr("id") } : {}),
+        name,
+        ...(summary ? { summary } : {}),
+        items,
+      });
+    });
+
+    if (result.length === 0) {
+      throw new Error("Moodle course sections were not found. Its course-page layout may have changed.");
+    }
+    return result;
   }
 
   async listMaterials(courseId: string): Promise<Material[]> {
