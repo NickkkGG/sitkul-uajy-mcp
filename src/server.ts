@@ -64,7 +64,7 @@ export function createServer(): McpServer {
 
   server.registerTool("get_assignment_details", {
     title: "Detail tugas",
-    description: "Open one Moodle assignment and return its instructions, deadline, submission status, grading status, and whether it can still be submitted.",
+    description: "Open one Moodle assignment and return its instructions, deadline, submission status, grading status, the names of the files in the current submission, and whether it can still be submitted.",
     inputSchema: { assignment_url: z.string().url().describe("Exact assignment URL returned by list_assignments") },
     annotations: { readOnlyHint: true },
   }, async ({ assignment_url }) => { try { return result(await moodle.getAssignmentDetails(assignment_url)); } catch (error) { return failure(error); } });

@@ -239,6 +239,7 @@ export class MoodleClient {
     gradingStatus?: string;
     timeRemaining?: string;
     lastModified?: string;
+    fileSubmissions: string[];
     canSubmit: boolean;
   }> {
     const assignment = this.absolute(assignmentUrl);
@@ -250,10 +251,18 @@ export class MoodleClient {
     const main = $("#region-main, main").first();
     const pageText = compact(main.text());
     const values = new Map<string, string>();
+    const fileSubmissions: string[] = [];
     main.find("tr").each((_, row) => {
       const label = compact($(row).find("th").first().text());
-      const value = compact($(row).find("td").first().text());
+      const cell = $(row).find("td").first();
+      const value = compact(cell.text());
       if (label && value) values.set(label.toLowerCase(), value);
+      if (label.toLowerCase() === "file submissions") {
+        cell.find('a[href*="pluginfile.php"]').each((_, link) => {
+          const name = compact($(link).text());
+          if (name && !fileSubmissions.includes(name)) fileSubmissions.push(name);
+        });
+      }
     });
     const dueText = /\bDue:\s*([A-Za-z]+,\s*\d{1,2}\s+[A-Za-z]+\s+\d{4},\s*\d{1,2}:\d{2}\s*(?:AM|PM))/i.exec(pageText)?.[1];
     const dueAt = dueText && !Number.isNaN(Date.parse(dueText)) ? new Date(dueText).toISOString() : undefined;
@@ -265,6 +274,7 @@ export class MoodleClient {
       gradingStatus: values.get("grading status"),
       timeRemaining: values.get("time remaining"),
       lastModified: values.get("last modified"),
+      fileSubmissions,
       canSubmit: /\b(?:Add|Edit) submission\b/i.test(pageText),
     };
   }
