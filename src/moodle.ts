@@ -36,7 +36,8 @@ export type CourseSection = {
 };
 
 const DEFAULT_BASE_URL = "https://kuliah.uajy.ac.id";
-const MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024;
+const MAX_DOWNLOAD_BYTES = 200 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 function compact(value: string): string {
   return value.replace(/\s+/g, " ").trim();
@@ -408,7 +409,7 @@ export class MoodleClient {
     const response = await this.request(material);
     if (!response.ok) throw new Error(`Download failed with HTTP ${response.status}.`);
     const bytes = Buffer.from(await response.arrayBuffer());
-    if (bytes.length > MAX_DOWNLOAD_BYTES) throw new Error("File is larger than the 25 MB safety limit.");
+    if (bytes.length > MAX_DOWNLOAD_BYTES) throw new Error("File is larger than the 200 MB safety limit.");
     const disposition = response.headers.get("content-disposition") ?? "";
     const fromHeader = /filename\*?=(?:UTF-8''|\")?([^;\"]+)/i.exec(disposition)?.[1];
     const fromUrl = decodeURIComponent(material.pathname.split("/").at(-1) ?? "material");
@@ -509,7 +510,7 @@ export class MoodleClient {
       return { ...form, draftItemId };
     });
     const data = await import("node:fs/promises").then(({ readFile }) => readFile(resolve(sourceFile)));
-    if (data.length > MAX_DOWNLOAD_BYTES) throw new Error("Upload is larger than the 25 MB safety limit.");
+    if (data.length > MAX_UPLOAD_BYTES) throw new Error("Upload is larger than the 25 MB safety limit.");
     const fileName = basename(sourceFile);
     const form = new FormData();
     form.set("repo_id", this.uploadRepositoryId(formPage));
